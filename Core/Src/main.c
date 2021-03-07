@@ -60,42 +60,47 @@ static void MX_GPIO_Init(void);
 static void MX_RTC_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-  HAL_UART_Receive_IT(huart, &Rx_data, 1);
-  str = "WakeUP from SLEEP by UART\r\n";
-  HAL_UART_Transmit(&huart1, (uint8_t *) str, strlen(str), HAL_MAX_DELAY);
+void GPIO_Blink(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint8_t times,
+    uint32_t delay) {
+  for (uint8_t i = 0; i < times; i++) {
+    HAL_GPIO_TogglePin(GPIOx, GPIO_Pin);
+    HAL_Delay(delay);
+  }
+
+  HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_RESET);
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+
   switch (state) {
-  case SLEEP_TESTING_STATE: {
+  case SLEEP_TESTING_STATE:
     HAL_ResumeTick();
 
     // Turning off SleepOnExit will make main() code run normally
     // Otherwise, the interruption would be executed and the MCU would sleep again (without run main())
-    HAL_PWR_DisableSleepOnExit();
+    if (GPIO_Pin == SLEEP_ON_EXIT_OFF_Pin)
+      HAL_PWR_DisableSleepOnExit();
 
     break;
-  }
 
-  case STOP_TESTING_STATE: {
+  case STOP_TESTING_STATE:
     // SystemClock may be configured again, because it was disabled
     SystemClock_Config();
     HAL_ResumeTick();
-    HAL_PWR_DisableSleepOnExit();
 
+    if (GPIO_Pin == SLEEP_ON_EXIT_OFF_Pin)
+      HAL_PWR_DisableSleepOnExit();
+    HAL_PWR_DisableSleepOnExit();
 
     // HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);
     break;
-  }
 
-  case STANDBY_TESTING_STATE: {
+  case STANDBY_TESTING_STATE:
+    if (GPIO_Pin == SLEEP_ON_EXIT_OFF_Pin)
+      state = SLEEP_TESTING_STATE;
 
     break;
   }
-
-  }
-  HAL_PWR_DisableSleepOnExit();
 }
 
 /* USER CODE END PFP */
@@ -111,6 +116,21 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
  */
 int main(void) {
   /* USER CODE BEGIN 1 */
+  // If PWR_FLAG_SB != RESET, system has been waked up in STANDBY mode
+  if (__HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET) {
+    state = STANDBY_TESTING_STATE;
+    __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);
+
+    HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN1);
+
+    HAL_GPIO_WritePin(GPIOA, LED_GREEN_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOA, LED_RED_Pin, GPIO_PIN_SET);
+
+    // Wait some time, so you can push buttons and change state variable
+    HAL_Delay(3000);
+    // HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);
+  }
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -142,33 +162,36 @@ int main(void) {
   while (1) {
     switch (state) {
     case SLEEP_TESTING_STATE: {
-      str = "Going into SLEEP MODE in 2 seconds\r\n";
-      HAL_UART_Transmit(&huart1, (uint8_t *) str, strlen(str), HAL_MAX_DELAY);
-      HAL_Delay(2000);
+      GPIO_Blink(GPIOA, LED_GREEN_Pin, 5, 500);
 
       HAL_SuspendTick();
       HAL_PWR_EnableSleepOnExit();
       HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
 
       HAL_ResumeTick();
-      str = "WakeUP from SLEEP\r\n";
-      HAL_UART_Transmit(&huart1, (uint8_t *) str, strlen(str), HAL_MAX_DELAY);
-
-      // state = STOP_TESTING_STATE;
+      GPIO_Blink(GPIOA, LED_GREEN_Pin, 5, 100);
+      state = STOP_TESTING_STATE;
       break;
     }
 
     case STOP_TESTING_STATE: {
+      GPIO_Blink(GPIOA, LED_RED_Pin, 5, 500);
+
       // HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, 0x4E20, RTC_WAKEUPCLOCK_RTCCLK_DIV16);
       HAL_SuspendTick();
       HAL_PWR_EnableSleepOnExit();
       HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
 
-      // state = STANDBY_TESTING_STATE;
+      HAL_ResumeTick();
+      GPIO_Blink(GPIOA, LED_RED_Pin, 5, 100);
+      state = STANDBY_TESTING_STATE;
       break;
     }
 
     case STANDBY_TESTING_STATE: {
+      __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
+      HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN1);
+      HAL_PWR_EnterSTANDBYMode();
 
       state = SLEEP_TESTING_STATE;
       break;
@@ -295,22 +318,30 @@ static void MX_GPIO_Init(void) {
   ;
   __HAL_RCC_GPIOA_CLK_ENABLE()
   ;
+  __HAL_RCC_GPIOB_CLK_ENABLE()
+  ;
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LED_1_Pin | LED_2_Pin | LED_3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LED_RED_Pin | LED_GREEN_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : LED_1_Pin LED_2_Pin LED_3_Pin */
-  GPIO_InitStruct.Pin = LED_1_Pin | LED_2_Pin | LED_3_Pin;
+  /*Configure GPIO pins : LED_RED_Pin LED_GREEN_Pin */
+  GPIO_InitStruct.Pin = LED_RED_Pin | LED_GREEN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA11 */
-  GPIO_InitStruct.Pin = GPIO_PIN_11;
+  /*Configure GPIO pin : SLEEP_ON_EXIT_OFF_Pin */
+  GPIO_InitStruct.Pin = SLEEP_ON_EXIT_OFF_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(SLEEP_ON_EXIT_OFF_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : EXIT_OFF_Pin */
+  GPIO_InitStruct.Pin = EXIT_OFF_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(EXIT_OFF_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
