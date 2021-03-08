@@ -50,7 +50,7 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 char *str;
 uint8_t Rx_data;
-uint8_t state = SLEEP_TESTING_STATE;
+uint8_t state;
 
 /* USER CODE END PV */
 
@@ -65,41 +65,38 @@ void GPIO_Blink(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint8_t times,
   for (uint8_t i = 0; i < times; i++) {
     HAL_GPIO_TogglePin(GPIOx, GPIO_Pin);
     HAL_Delay(delay);
+    HAL_GPIO_TogglePin(GPIOx, GPIO_Pin);
+    HAL_Delay(delay);
   }
 
   HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_RESET);
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+  // In SLEEP and STOP testing states, turning off SleepOnExit will make main() code run again
+  // Otherwise, the interruption would be executed and the MCU would sleep without look to main()
   switch (state) {
   case SLEEP_TESTING_STATE:
-    HAL_ResumeTick();
-
-    // Turning off SleepOnExit will make main() code run normally
-    // Otherwise, the interruption would be executed and the MCU would sleep again (without run main())
     if (GPIO_Pin == SLEEP_ON_EXIT_OFF_Pin)
       HAL_PWR_DisableSleepOnExit();
     else
+      // LED_GREEN will be toggled = System has just woken up from SLEEP mode and SleepOnExit stills enabled
       HAL_GPIO_TogglePin(GPIOA, LED_GREEN_Pin);
 
     break;
 
   case STOP_TESTING_STATE:
-    // SystemClock may be configured again, because it was disabled
-    SystemClock_Config();
-    HAL_ResumeTick();
-
     if (GPIO_Pin == SLEEP_ON_EXIT_OFF_Pin)
       HAL_PWR_DisableSleepOnExit();
     else
+      // LED_RED will be toggled = System has just woken up from STOP mode and SleepOnExit stills enabled
       HAL_GPIO_TogglePin(GPIOA, LED_RED_Pin);
 
-    // HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);
     break;
 
   case STANDBY_TESTING_STATE:
     if (GPIO_Pin == SLEEP_ON_EXIT_OFF_Pin)
-      state = SLEEP_TESTING_STATE;
+      state = SLEEP_TESTING_STATE; // Changing the state is the way we avoid STANDBY to be performed again
 
     break;
   }
@@ -113,11 +110,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int main(void)
-{
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void) {
   /* USER CODE BEGIN 1 */
   /* USER CODE END 1 */
 
@@ -141,20 +137,25 @@ int main(void)
   MX_GPIO_Init();
   MX_RTC_Init();
   MX_USART1_UART_Init();
+
   /* USER CODE BEGIN 2 */
-
-  // If PWR_FLAG_SB != RESET, system has been waked up in STANDBY mode
   if (__HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET) {
-    state = STANDBY_TESTING_STATE;
+    // If PWR_FLAG_SB was not RESET, system has been waked up in STANDBY mode
     __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);
-
     HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN1);
 
-    GPIO_Blink(GPIOA, LED_RED_Pin, 1, 2000); // Wait some time, so you can push buttons and change state variable
-    // HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);
+    // LED_RED will blink once very slowly = System has been woken up from STANDBY mode
+    //                                       and is about to deep sleep again if SLEEP_ON_EXIT_OFF
+    //                                       button is not pressed
+    GPIO_Blink(GPIOA, LED_RED_Pin, 1, 2000);
+    state = STANDBY_TESTING_STATE;
   }
 
-  GPIO_Blink(GPIOA, LED_GREEN_Pin, 1, 2000);
+  else {
+    // LED_GREEN will blink once very slowly = System has been powered on or reseted
+    GPIO_Blink(GPIOA, LED_GREEN_Pin, 1, 2000);
+    state = SLEEP_TESTING_STATE;
+  }
 
   /* USER CODE END 2 */
 
@@ -165,41 +166,44 @@ int main(void)
     HAL_GPIO_WritePin(GPIOA, LED_RED_Pin, GPIO_PIN_RESET);
 
     switch (state) {
-    case SLEEP_TESTING_STATE: {
-      GPIO_Blink(GPIOA, LED_GREEN_Pin, 5, 500);
+    case SLEEP_TESTING_STATE:
+      // LED_GREEN will blink 3 times = System is about to enter in SLEEP mode and SleepOnExit is enabled
+      GPIO_Blink(GPIOA, LED_GREEN_Pin, 3, 500);
 
       HAL_SuspendTick();
       HAL_PWR_EnableSleepOnExit();
+
       HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
 
       HAL_ResumeTick();
-      GPIO_Blink(GPIOA, LED_GREEN_Pin, 25, 100);
+
+      // LED_GREEN will blink 15 times quickly = System has just woken up from SLEEP mode and SleepOnExit is disabled
+      GPIO_Blink(GPIOA, LED_GREEN_Pin, 15, 100);
       state = STOP_TESTING_STATE;
       break;
-    }
 
-    case STOP_TESTING_STATE: {
-      GPIO_Blink(GPIOA, LED_RED_Pin, 5, 500);
+    case STOP_TESTING_STATE:
+      // LED_RED will blink 3 times = System is about to enter in STOP mode and SleepOnExit is enabled
+      GPIO_Blink(GPIOA, LED_RED_Pin, 3, 500);
 
-      // HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, 0x4E20, RTC_WAKEUPCLOCK_RTCCLK_DIV16);
       HAL_SuspendTick();
       HAL_PWR_EnableSleepOnExit();
+
       HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
 
+      SystemClock_Config(); // SystemClock may be configured again, because it was disabled
       HAL_ResumeTick();
-      GPIO_Blink(GPIOA, LED_RED_Pin, 25, 100);
+
+      // LED_RED will blink 15 times quickly = System has just woken up from STOP mode and SleepOnExit is disabled
+      GPIO_Blink(GPIOA, LED_RED_Pin, 15, 100);
       state = STANDBY_TESTING_STATE;
       break;
-    }
 
-    case STANDBY_TESTING_STATE: {
+    case STANDBY_TESTING_STATE:
       __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
       HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN1);
-      HAL_PWR_EnterSTANDBYMode();
 
-      state = SLEEP_TESTING_STATE;
-      break;
-    }
+      HAL_PWR_EnterSTANDBYMode();
     }
     /* USER CODE END WHILE */
 
@@ -209,55 +213,51 @@ int main(void)
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
-{
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void) {
+  RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = { 0 };
 
   /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI;
+   * in the RCC_OscInitTypeDef structure.
+   */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI
+      | RCC_OSCILLATORTYPE_LSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
     Error_Handler();
   }
   /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+   */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+      | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
-  {
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK) {
     Error_Handler();
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
-  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
-  {
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
     Error_Handler();
   }
 }
 
 /**
-  * @brief RTC Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_RTC_Init(void)
-{
+ * @brief RTC Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_RTC_Init(void) {
 
   /* USER CODE BEGIN RTC_Init 0 */
 
@@ -267,12 +267,11 @@ static void MX_RTC_Init(void)
 
   /* USER CODE END RTC_Init 1 */
   /** Initialize RTC Only
-  */
+   */
   hrtc.Instance = RTC;
   hrtc.Init.AsynchPrediv = RTC_AUTO_1_SECOND;
   hrtc.Init.OutPut = RTC_OUTPUTSOURCE_ALARM;
-  if (HAL_RTC_Init(&hrtc) != HAL_OK)
-  {
+  if (HAL_RTC_Init(&hrtc) != HAL_OK) {
     Error_Handler();
   }
   /* USER CODE BEGIN RTC_Init 2 */
@@ -282,12 +281,11 @@ static void MX_RTC_Init(void)
 }
 
 /**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART1_UART_Init(void)
-{
+ * @brief USART1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART1_UART_Init(void) {
 
   /* USER CODE BEGIN USART1_Init 0 */
 
@@ -304,8 +302,7 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.Mode = UART_MODE_TX_RX;
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
-  {
+  if (HAL_UART_Init(&huart1) != HAL_OK) {
     Error_Handler();
   }
   /* USER CODE BEGIN USART1_Init 2 */
@@ -315,25 +312,28 @@ static void MX_USART1_UART_Init(void)
 }
 
 /**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
+ * @brief GPIO Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_GPIO_Init(void) {
+  GPIO_InitTypeDef GPIO_InitStruct = { 0 };
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE()
+  ;
+  __HAL_RCC_GPIOD_CLK_ENABLE()
+  ;
+  __HAL_RCC_GPIOA_CLK_ENABLE()
+  ;
+  __HAL_RCC_GPIOB_CLK_ENABLE()
+  ;
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LED_RED_Pin|LED_GREEN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LED_RED_Pin | LED_GREEN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : LED_RED_Pin LED_GREEN_Pin */
-  GPIO_InitStruct.Pin = LED_RED_Pin|LED_GREEN_Pin;
+  GPIO_InitStruct.Pin = LED_RED_Pin | LED_GREEN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -365,11 +365,10 @@ static void MX_GPIO_Init(void)
 /* USER CODE END 4 */
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
-{
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void) {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
@@ -380,12 +379,12 @@ void Error_Handler(void)
 
 #ifdef  USE_FULL_ASSERT
 /**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
