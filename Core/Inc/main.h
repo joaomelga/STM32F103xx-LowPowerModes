@@ -67,8 +67,9 @@ void Error_Handler(void);
 #define SLEEP_ON_EXIT_OFF_Pin GPIO_PIN_11
 #define SLEEP_ON_EXIT_OFF_GPIO_Port GPIOA
 #define SLEEP_ON_EXIT_OFF_EXTI_IRQn EXTI15_10_IRQn
-#define OTHER_BTN_Pin GPIO_PIN_3
+#define OTHER_BTN_Pin GPIO_PIN_4
 #define OTHER_BTN_GPIO_Port GPIOB
+#define OTHER_BTN_EXTI_IRQn EXTI4_IRQn
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

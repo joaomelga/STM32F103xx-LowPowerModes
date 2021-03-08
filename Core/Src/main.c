@@ -74,12 +74,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   switch (state) {
   case SLEEP_TESTING_STATE:
     HAL_ResumeTick();
-    GPIO_Blink(GPIOA, LED_GREEN_Pin, 5, 100);
 
     // Turning off SleepOnExit will make main() code run normally
     // Otherwise, the interruption would be executed and the MCU would sleep again (without run main())
     if (GPIO_Pin == SLEEP_ON_EXIT_OFF_Pin)
       HAL_PWR_DisableSleepOnExit();
+    else
+      HAL_GPIO_TogglePin(GPIOA, LED_GREEN_Pin);
 
     break;
 
@@ -87,10 +88,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     // SystemClock may be configured again, because it was disabled
     SystemClock_Config();
     HAL_ResumeTick();
-    GPIO_Blink(GPIOA, LED_RED_Pin, 5, 100);
 
     if (GPIO_Pin == SLEEP_ON_EXIT_OFF_Pin)
       HAL_PWR_DisableSleepOnExit();
+    else
+      HAL_GPIO_TogglePin(GPIOA, LED_RED_Pin);
 
     // HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);
     break;
@@ -159,6 +161,9 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
+    HAL_GPIO_WritePin(GPIOA, LED_GREEN_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOA, LED_RED_Pin, GPIO_PIN_RESET);
+
     switch (state) {
     case SLEEP_TESTING_STATE: {
       GPIO_Blink(GPIOA, LED_GREEN_Pin, 5, 500);
@@ -168,6 +173,7 @@ int main(void)
       HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
 
       HAL_ResumeTick();
+      GPIO_Blink(GPIOA, LED_GREEN_Pin, 25, 100);
       state = STOP_TESTING_STATE;
       break;
     }
@@ -181,7 +187,7 @@ int main(void)
       HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
 
       HAL_ResumeTick();
-      GPIO_Blink(GPIOA, LED_RED_Pin, 5, 100);
+      GPIO_Blink(GPIOA, LED_RED_Pin, 25, 100);
       state = STANDBY_TESTING_STATE;
       break;
     }
@@ -346,6 +352,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(OTHER_BTN_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
