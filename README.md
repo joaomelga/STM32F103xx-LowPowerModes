@@ -19,6 +19,6 @@ This repository contains:
 2.	Low-power modes 
 3. 	Low power modes application example
 4.	Estimating power consumption with PCC tool in CubeMX
-5.	Low-power modes with FREERTOS
+5.	Low-power modes with FreeRTOS
 
 - an Application demo, detailed "3. Low power modes application example"  developed under the stack SW4STM32 + CubeMX + HAL api.
