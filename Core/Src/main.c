@@ -144,16 +144,14 @@ int main(void) {
     __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB);
     HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN1);
 
-    // LED_RED will blink once very slowly = System has been woken up from STANDBY mode
-    //                                       and is about to deep sleep again if SLEEP_ON_EXIT_OFF
-    //                                       button is not pressed
-    GPIO_Blink(GPIOA, LED_RED_Pin, 1, 2000);
     state = STANDBY_TESTING_STATE;
+    // LED_RED will blink once very slowly = System has been woken up from STANDBY mode
+    GPIO_Blink(GPIOA, LED_RED_Pin, 1, 3000);
   }
 
   else {
     // LED_GREEN will blink once very slowly = System has been powered on or reseted
-    GPIO_Blink(GPIOA, LED_GREEN_Pin, 1, 2000);
+    GPIO_Blink(GPIOA, LED_GREEN_Pin, 1, 3000);
     state = SLEEP_TESTING_STATE;
   }
 
