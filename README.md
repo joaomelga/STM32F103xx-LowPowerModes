@@ -1,9 +1,7 @@
-# README
+# STM32F103xx-LowPowerModes
 
 Copyright (C) 2020 João Melga & Marcelo Braga
-
 Created on: mar-08-2021
-
 Institution: Universidade Federal de Minas Gerais - UFMG
 
 ### Introduction
@@ -12,7 +10,7 @@ This repository was developed as an assignment of the Embedded Systems Programmi
 Embedded systems are designed to perform a specific task handling limited resources and accomplishing a list of prerequisites, where some of these are directly impacted by the microcontroller power consuming characteristics. Behind various electronic products, there is a microcontroller sourced by batteries, and when it is important to ensure your system will not go down by lack of energy, it is also important to know how you can optimize the power consumption.
 This repository was created to give an overview and an example application of the low-power modes of STM32F1 microcontroller family.
 
-### STM32F103xx-LowPowerModes
+### Content
 This repository contains:
 - An Application Note PDF file ["Using low power modes in STM32F1 microcontrollers"](https://github.com/joaomelga/STM32F103xx-LowPowerModes/blob/main/Using%20low%20power%20modes%20in%20STM32F1%20microcontrollers.pdf) on the STM32F1 Low-power modes topic,  with the following contents:
 1.  Run mode
