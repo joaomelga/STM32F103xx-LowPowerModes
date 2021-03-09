@@ -14,7 +14,7 @@ This repository was created to give an overview and an example application of th
 
 ### STM32F103xx-LowPowerModes
 This repository contains:
-- an Application Note PDF file on the STM32F1 Low-power modes topic,  with the following contents:
+- an Application Note PDF file ["Using low power modes in STM32F1 microcontrollers"](https://github.com/joaomelga/STM32F103xx-LowPowerModes/blob/main/Using%20low%20power%20modes%20in%20STM32F1%20microcontrollers.pdf) on the STM32F1 Low-power modes topic,  with the following contents:
 1.  Run mode
 2.	Low-power modes 
 3. 	Low power modes application example
