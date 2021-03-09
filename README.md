@@ -14,11 +14,11 @@ This repository was created to give an overview and an example application of th
 
 ### STM32F103xx-LowPowerModes
 This repository contains:
-- an Application Note PDF file ["Using low power modes in STM32F1 microcontrollers"](https://github.com/joaomelga/STM32F103xx-LowPowerModes/blob/main/Using%20low%20power%20modes%20in%20STM32F1%20microcontrollers.pdf) on the STM32F1 Low-power modes topic,  with the following contents:
+- An Application Note PDF file ["Using low power modes in STM32F1 microcontrollers"](https://github.com/joaomelga/STM32F103xx-LowPowerModes/blob/main/Using%20low%20power%20modes%20in%20STM32F1%20microcontrollers.pdf) on the STM32F1 Low-power modes topic,  with the following contents:
 1.  Run mode
 2.	Low-power modes 
 3. 	Low power modes application example
 4.	Estimating power consumption with PCC tool in CubeMX
 5.	Low-power modes with FreeRTOS
 
-- an Application demo, detailed in"3. Low power modes application example"  developed under the stack SW4STM32 + CubeMX + HAL api.
+- A demo application, detailed in "3. Low power modes application example" developed under the stack SW4STM32 + CubeMX + HAL api.
