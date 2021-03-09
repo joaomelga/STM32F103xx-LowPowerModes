@@ -1,7 +1,9 @@
 # STM32F103xx-LowPowerModes
 
 Copyright (C) 2020 João Melga & Marcelo Braga
+
 Created on: mar-08-2021
+
 Institution: Universidade Federal de Minas Gerais - UFMG
 
 ### Introduction
